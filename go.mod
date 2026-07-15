@@ -1,0 +1,13 @@
+module ipv6-watcher
+
+go 1.26.4
+
+require (
+	github.com/google/gopacket v1.1.19
+	github.com/vishvananda/netlink v1.3.1
+)
+
+require (
+	github.com/vishvananda/netns v0.0.5 // indirect
+	golang.org/x/sys v0.10.0 // indirect
+)

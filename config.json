@@ -1,0 +1,6 @@
+{
+    "wan_interface": "eth0",
+    "lan_interface": "eth1",
+    "lan_subnet_size": 96,
+    "lan_ip_position": "first"
+  }
