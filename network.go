@@ -119,7 +119,7 @@ func applyNetworkSysctl(wanIf, lanIf string) error {
 		if err != nil {
 			return fmt.Errorf("sysctl -w %s: %w (%s)", setting, err, strings.TrimSpace(string(out)))
 		}
-		fmt.Printf("sysctl -w %s\n", setting)
+		infof("sysctl -w %s\n", setting)
 	}
 
 	return nil

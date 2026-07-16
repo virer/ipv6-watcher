@@ -1,0 +1,19 @@
+[Unit]
+Description=ipv6-watcher (NAT66 avoider)
+# 1. Waits network is fully online
+Wants=network-online.target
+After=network-online.target
+
+# After=sys-subsystem-net-devices-eth0.device
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/ipv6-watcher
+Restart=on-failure
+RestartSec=10s
+
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target

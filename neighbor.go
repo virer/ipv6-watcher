@@ -27,14 +27,16 @@ func loadNeighborState(wanIf, lanIf string) neighborState {
 		neighbored: loadNeighboredIPs(lanIf),
 	}
 
+	reconcileRouteProxy(lanIf, wanIf, state.proxied, state.routed)
+
 	if len(state.proxied) > 0 {
-		fmt.Printf("Loaded %d existing NDP proxy entries\n", len(state.proxied))
+		infof("Loaded %d existing NDP proxy entries\n", len(state.proxied))
 	}
 	if len(state.routed) > 0 {
-		fmt.Printf("Loaded %d existing client routes\n", len(state.routed))
+		infof("Loaded %d existing client routes\n", len(state.routed))
 	}
 	if len(state.neighbored) > 0 {
-		fmt.Printf("Loaded %d existing neighbor entries\n", len(state.neighbored))
+		infof("Loaded %d existing neighbor entries\n", len(state.neighbored))
 	}
 
 	return state
@@ -63,7 +65,7 @@ func watchLANNeighbors(
 	for {
 		select {
 		case <-sigCh:
-			fmt.Println("Shutting down...")
+			infof("Shutting down...\n")
 			return
 		case update, ok := <-updates:
 			if !ok {
@@ -129,7 +131,7 @@ func addNdpProxy(ip string, wanIf string, proxied map[string]struct{}) {
 	}
 
 	proxied[ip] = struct{}{}
-	fmt.Printf("NDP proxy configured on %s for %s\n", wanIf, ip)
+	infof("NDP proxy configured on %s for %s\n", wanIf, ip)
 }
 
 func loadClientRoutes(lanIf string) map[string]struct{} {
@@ -142,16 +144,53 @@ func loadClientRoutes(lanIf string) map[string]struct{} {
 
 	for _, line := range strings.Split(string(out), "\n") {
 		fields := strings.Fields(line)
-		if len(fields) == 0 || !strings.Contains(fields[0], ":") {
+		if len(fields) == 0 {
 			continue
 		}
-		if strings.Contains(fields[0], "/") {
-			continue
+		if ip := parseHostRoute(fields[0]); ip != "" {
+			routed[ip] = struct{}{}
 		}
-		routed[fields[0]] = struct{}{}
 	}
 
 	return routed
+}
+
+func parseHostRoute(dest string) string {
+	if !strings.Contains(dest, ":") {
+		return ""
+	}
+	if !strings.Contains(dest, "/") {
+		return dest
+	}
+
+	ip, network, err := net.ParseCIDR(dest)
+	if err != nil || ip.To4() != nil {
+		return ""
+	}
+	ones, bits := network.Mask.Size()
+	if ones != bits {
+		return ""
+	}
+	return ip.String()
+}
+
+func reconcileRouteProxy(lanIf, wanIf string, proxied, routed map[string]struct{}) {
+	ips := make(map[string]struct{}, len(proxied)+len(routed))
+	for ip := range proxied {
+		ips[ip] = struct{}{}
+	}
+	for ip := range routed {
+		ips[ip] = struct{}{}
+	}
+
+	for ip := range ips {
+		ensureClientRouteAndProxy(ip, lanIf, wanIf, proxied, routed)
+	}
+}
+
+func ensureClientRouteAndProxy(ip, lanIf, wanIf string, proxied, routed map[string]struct{}) {
+	addClientRoute(ip, lanIf, routed)
+	addNdpProxy(ip, wanIf, proxied)
 }
 
 func addClientRoute(ip, lanIf string, routed map[string]struct{}) {
@@ -171,7 +210,7 @@ func addClientRoute(ip, lanIf string, routed map[string]struct{}) {
 	}
 
 	routed[ip] = struct{}{}
-	fmt.Printf("Route added for %s via %s\n", ip, lanIf)
+	infof("Route added for %s via %s\n", ip, lanIf)
 }
 
 func isValidMAC(mac net.HardwareAddr) bool {
@@ -227,8 +266,7 @@ func handleClientDetection(
 		isNewClient = true
 	}
 
-	addClientRoute(ipStr, lanIf, routed)
-	addNdpProxy(ipStr, wanIf, proxied)
+	ensureClientRouteAndProxy(ipStr, lanIf, wanIf, proxied, routed)
 
 	if isNewClient {
 		raSender.send("new-client")
@@ -239,11 +277,11 @@ func handleClientDetection(
 		mac, _ = resolveClientMAC(lanIf, lanLink, clientIP)
 	}
 	if !isValidMAC(mac) {
-		fmt.Printf("Host detected on LAN: %s (MAC: unresolved)\n", clientIP)
+		infof("Host detected on LAN: %s (MAC: unresolved)\n", clientIP)
 		return
 	}
 
-	fmt.Printf("Host detected on LAN: %s (MAC: %s)\n", clientIP, mac)
+	infof("Host detected on LAN: %s (MAC: %s)\n", clientIP, mac)
 	addClientNeighbor(lanLink.Attrs().Index, clientIP, mac, neighbored)
 }
 
@@ -287,5 +325,5 @@ func addClientNeighbor(linkIndex int, ip net.IP, mac net.HardwareAddr, neighbore
 	}
 
 	neighbored[ipStr] = struct{}{}
-	fmt.Printf("Neighbor entry added for %s (%s)\n", ipStr, mac)
+	infof("Neighbor entry added for %s (%s)\n", ipStr, mac)
 }

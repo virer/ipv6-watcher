@@ -24,6 +24,8 @@ func main() {
 		log.Fatalf("Error loading configuration: %v", err)
 	}
 
+	setQuietOutput(cfg.Quiet)
+
 	printConfig(cfg)
 
 	setup, lanLink, err := initializeLAN(cfg)
@@ -32,13 +34,13 @@ func main() {
 	}
 	defer stopDnsmasq()
 
-	raSender, err := startRouterAdvertisements(cfg.LanInterface, lanLink)
+	raSender, err := startRouterAdvertisements(cfg.LanInterface, lanLink, cfg.Verbose)
 	if err != nil {
 		log.Fatalf("Error starting router advertisements: %v", err)
 	}
 	defer raSender.Close()
 
-	fmt.Printf("Listening on LAN (%s)...\n", cfg.LanInterface)
+	infof("Listening on LAN (%s)...\n", cfg.LanInterface)
 
 	state := loadNeighborState(cfg.WanInterface, cfg.LanInterface)
 	watchLANNeighbors(
@@ -53,9 +55,9 @@ func main() {
 }
 
 func printConfig(cfg *runtimeConfig) {
-	fmt.Printf("Config loaded | WAN: %s | LAN: %s | LAN Subnet: /%d | LAN IP: %s\n",
+	infof("Config loaded | WAN: %s | LAN: %s | LAN Subnet: /%d | LAN IP: %s\n",
 		cfg.WanInterface, cfg.LanInterface, cfg.LanSubnetSize, cfg.LanIPPosition)
-	fmt.Printf("ULA address: %s | ULA DHCP range: %s\n", cfg.LanULAAddress, cfg.ULADHCPRange)
+	infof("ULA address: %s | ULA DHCP range: %s\n", cfg.LanULAAddress, cfg.ULADHCPRange)
 }
 
 func initializeLAN(cfg *runtimeConfig) (*lanSetup, netlink.Link, error) {
@@ -63,14 +65,14 @@ func initializeLAN(cfg *runtimeConfig) (*lanSetup, netlink.Link, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to detect global IPv6 on %s: %w", cfg.WanInterface, err)
 	}
-	fmt.Printf("WAN IPv6 detected: %s\n", wanIP)
+	infof("WAN IPv6 detected: %s\n", wanIP)
 
 	targetNet, gatewayIP, err := calculateLANNetworkAndIP(wanIP, cfg.LanSubnetSize, cfg.LanIPPosition)
 	if err != nil {
 		return nil, nil, fmt.Errorf("calculating LAN network: %w", err)
 	}
-	fmt.Printf("Target LAN prefix: %s\n", targetNet.String())
-	fmt.Printf("Calculated LAN gateway IP: %s/%d\n", gatewayIP.String(), cfg.LanSubnetSize)
+	infof("Target LAN prefix: %s\n", targetNet.String())
+	infof("Calculated LAN gateway IP: %s/%d\n", gatewayIP.String(), cfg.LanSubnetSize)
 
 	if err := configureLanInterface(cfg.LanInterface, gatewayIP, cfg.LanSubnetSize, cfg.LanULAAddress); err != nil {
 		return nil, nil, fmt.Errorf("configuring LAN interface %s: %w", cfg.LanInterface, err)
@@ -81,7 +83,7 @@ func initializeLAN(cfg *runtimeConfig) (*lanSetup, netlink.Link, error) {
 	}
 
 	prefixDHCPRange := prefixDHCPRange(wanIP, cfg.LanSubnetSize)
-	if err := startDnsmasq(cfg.LanInterface, cfg.ULADHCPRange, prefixDHCPRange); err != nil {
+	if err := startDnsmasq(cfg.LanInterface, cfg.ULADHCPRange, prefixDHCPRange, cfg.Verbose); err != nil {
 		return nil, nil, fmt.Errorf("starting dnsmasq: %w", err)
 	}
 	logDnsmasqStarted()
@@ -97,7 +99,7 @@ func initializeLAN(cfg *runtimeConfig) (*lanSetup, netlink.Link, error) {
 	}, lanLink, nil
 }
 
-func startRouterAdvertisements(lanIf string, lanLink netlink.Link) (*raSender, error) {
+func startRouterAdvertisements(lanIf string, lanLink netlink.Link, verbose bool) (*raSender, error) {
 	macSrc := lanLink.Attrs().HardwareAddr
 	if !isValidMAC(macSrc) {
 		return nil, fmt.Errorf("invalid MAC address on %s", lanIf)
@@ -112,6 +114,7 @@ func startRouterAdvertisements(lanIf string, lanLink netlink.Link) (*raSender, e
 	if err != nil {
 		return nil, fmt.Errorf("initializing RA sender on %s: %w", lanIf, err)
 	}
+	raSender.verbose = verbose
 
 	go raSender.StartPeriodic(raInterval)
 	return raSender, nil

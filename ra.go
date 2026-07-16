@@ -24,11 +24,12 @@ const (
 )
 
 type raSender struct {
-	conn   *os.File
-	lanIf  string
-	srcIP  net.IP
-	macSrc net.HardwareAddr
-	prefix *net.IPNet
+	conn    *os.File
+	lanIf   string
+	srcIP   net.IP
+	macSrc  net.HardwareAddr
+	prefix  *net.IPNet
+	verbose bool
 }
 
 func newRASender(lanIf string, macSrc net.HardwareAddr, srcIP net.IP, prefix *net.IPNet) (*raSender, error) {
@@ -90,7 +91,9 @@ func (s *raSender) send(trigger string) {
 		log.Printf("Error sending RA on %s (%s): %v", s.lanIf, trigger, err)
 		return
 	}
-	log.Printf("Router advertisement sent on %s (%s, src %s, prefix %s)", s.lanIf, trigger, s.srcIP, s.prefix)
+	if s.verbose {
+		log.Printf("Router advertisement sent on %s (%s, src %s, prefix %s)", s.lanIf, trigger, s.srcIP, s.prefix)
+	}
 }
 
 func (s *raSender) sendRA() error {

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultConfigFile    = "config.json"
+	defaultConfigFile    = "/etc/ipv6-watcher.json"
 	defaultLanULAAddress = "fd00:1111:cafe::1"
 	defaultULADHCPRange  = "fd00:1111:cafe::10,fd00:1111:cafe::ffff:fff6,64,12h"
 	lanULAPrefixSize     = 64
@@ -24,6 +24,8 @@ type Config struct {
 	LanIPPosition string `json:"lan_ip_position"` // "first" or "last"
 	LanULAAddress string `json:"lan_ula_address"`
 	ULADHCPRange  string `json:"ula_dhcp_range"`
+	Quiet         bool   `json:"quiet"`
+	Verbose       bool   `json:"verbose"`
 }
 
 type runtimeConfig struct {
@@ -37,7 +39,15 @@ func loadRuntimeConfig() (*runtimeConfig, error) {
 	ulaDHCPRange := flag.String("ula-dhcp-range", "", "dnsmasq DHCPv6 range for the ULA prefix")
 	flag.Parse()
 
-	config, err := loadConfig(*configFile)
+	path := *configFile
+	if args := flag.Args(); len(args) > 0 {
+		if len(args) > 1 {
+			return nil, fmt.Errorf("unexpected arguments: %v", args[1:])
+		}
+		path = args[0]
+	}
+
+	config, err := loadConfig(path)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +65,7 @@ func loadRuntimeConfig() (*runtimeConfig, error) {
 
 	return &runtimeConfig{
 		Config:     config,
-		configFile: *configFile,
+		configFile: path,
 	}, nil
 }
 
@@ -94,6 +104,9 @@ func (c *Config) applyDefaults() {
 }
 
 func (c *Config) validate() error {
+	if c.Quiet && c.Verbose {
+		return fmt.Errorf("quiet and verbose cannot both be enabled")
+	}
 	if c.LanIPPosition != "first" && c.LanIPPosition != "last" {
 		return fmt.Errorf("invalid lan_ip_position (%s): only 'first' and 'last' are accepted", c.LanIPPosition)
 	}
