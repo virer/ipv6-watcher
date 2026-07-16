@@ -4,6 +4,8 @@ A small Linux daemon that turns a machine with a global IPv6 address on its WAN 
 
 ## What problem does it solve?
 
+TL;DR: A service to avoid NAT66 usage
+
 Many setups receive a single global IPv6 prefix from an ISP (often a /56 or /64) on one interface, but still need a working LAN side with:
 
 - A stable router/gateway address on the LAN
