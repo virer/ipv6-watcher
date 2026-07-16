@@ -15,7 +15,7 @@ const dnsmasqPIDFile = "/var/run/dnsmasq-dhcpv6.pid"
 
 var dnsmasqCmd *exec.Cmd
 
-func startDnsmasq(lanIf, ulaDHCPRange, prefixDHCPRange string, verbose bool) error {
+func startDnsmasq(lanIf, ulaDHCPRange, prefixDHCPRange string, quiet, verbose bool) error {
 	args := []string{
 		"--keep-in-foreground",
 		"--port=0",
@@ -26,6 +26,9 @@ func startDnsmasq(lanIf, ulaDHCPRange, prefixDHCPRange string, verbose bool) err
 		"--dhcp-leasefile=/var/run/dnsmasq-dhcpv6.leases",
 		"--dhcp-range=" + ulaDHCPRange,
 		"--dhcp-range=" + prefixDHCPRange,
+	}
+	if quiet {
+		args = append(args, "--quiet-dhcp6")
 	}
 	if verbose {
 		args = append(args, "--log-dhcp")

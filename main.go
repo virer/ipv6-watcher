@@ -83,7 +83,7 @@ func initializeLAN(cfg *runtimeConfig) (*lanSetup, netlink.Link, error) {
 	}
 
 	prefixDHCPRange := prefixDHCPRange(wanIP, cfg.LanSubnetSize)
-	if err := startDnsmasq(cfg.LanInterface, cfg.ULADHCPRange, prefixDHCPRange, cfg.Verbose); err != nil {
+	if err := startDnsmasq(cfg.LanInterface, cfg.ULADHCPRange, prefixDHCPRange, cfg.Quiet, cfg.Verbose); err != nil {
 		return nil, nil, fmt.Errorf("starting dnsmasq: %w", err)
 	}
 	logDnsmasqStarted()
