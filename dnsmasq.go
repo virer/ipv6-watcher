@@ -11,7 +11,10 @@ import (
 	"time"
 )
 
-const dnsmasqPIDFile = "/var/run/dnsmasq-dhcpv6.pid"
+const (
+	dnsmasqPIDFile   = "/var/run/dnsmasq-dhcpv6.pid"
+	dnsmasqLeaseFile = "/var/run/dnsmasq-dhcpv6.leases"
+)
 
 var dnsmasqCmd *exec.Cmd
 
@@ -23,7 +26,7 @@ func startDnsmasq(lanIf, ulaDHCPRange, prefixDHCPRange string, quiet, verbose bo
 		"--bind-dynamic",
 		"--pid-file=" + dnsmasqPIDFile,
 		"--dhcp-hostsfile=/var/run/dnsmasq-dhcpv6.hosts",
-		"--dhcp-leasefile=/var/run/dnsmasq-dhcpv6.leases",
+		"--dhcp-leasefile=" + dnsmasqLeaseFile,
 		"--dhcp-range=" + ulaDHCPRange,
 		"--dhcp-range=" + prefixDHCPRange,
 	}

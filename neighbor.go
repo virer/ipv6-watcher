@@ -58,6 +58,9 @@ func watchLANNeighbors(
 		log.Fatalf("Netlink subscription error: %v", err)
 	}
 
+	leaseIPs := make(chan string, 32)
+	go watchDnsmasqLeases(dnsmasqLeaseFile, targetNet, leaseIPs, done)
+
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(sigCh)
@@ -67,6 +70,8 @@ func watchLANNeighbors(
 		case <-sigCh:
 			infof("Shutting down...\n")
 			return
+		case ipStr := <-leaseIPs:
+			handleLeaseClient(ipStr, gatewayIP, lanIf, wanIf, state, raSender)
 		case update, ok := <-updates:
 			if !ok {
 				return
@@ -93,6 +98,25 @@ func watchLANNeighbors(
 				raSender,
 			)
 		}
+	}
+}
+
+func handleLeaseClient(ipStr string, gatewayIP net.IP, lanIf, wanIf string, state *neighborState, raSender *raSender) {
+	ip := net.ParseIP(ipStr)
+	if ip == nil || ip.Equal(gatewayIP) {
+		return
+	}
+
+	isNewClient := false
+	if _, ok := state.routed[ipStr]; !ok {
+		isNewClient = true
+	}
+
+	ensureClientRouteAndProxy(ipStr, lanIf, wanIf, state.proxied, state.routed)
+
+	if isNewClient {
+		infof("Lease client on LAN: %s\n", ipStr)
+		raSender.send("new-client")
 	}
 }
 
