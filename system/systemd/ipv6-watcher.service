@@ -12,7 +12,6 @@ ExecStart=/usr/local/bin/ipv6-watcher
 Restart=on-failure
 RestartSec=10s
 
-StartLimitIntervalSec=60s
 StartLimitBurst=5
 
 [Install]

@@ -47,7 +47,7 @@ On exit, it stops the `dnsmasq` child process it started.
 - Linux with IPv6 enabled
 - Root privileges (netlink, raw packets, `sysctl`, `ip`, process management)
 - [`dnsmasq`](https://thekelleys.org.uk/dnsmasq/doc.html) installed and available in `PATH`
-- Go 1.26+ to build from source
+- Go 1.27+ to build from source
 
 ## Configuration
 
